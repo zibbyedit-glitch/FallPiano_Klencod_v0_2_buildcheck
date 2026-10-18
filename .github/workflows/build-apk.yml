@@ -1,0 +1,60 @@
+name: Build Fall Piano APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.7'
+          channel: stable
+          cache: true
+
+      - name: Show toolchain
+        run: |
+          flutter --version
+          dart --version
+          java -version
+
+      - name: Generate modern Android project (Embedding V2)
+        run: |
+          flutter create --platforms=android --org com.example --project-name fall_piano .
+          test -f android/app/src/main/AndroidManifest.xml
+          grep -R "io.flutter.embedding.android" android/app/src/main || true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Check Dart source
+        run: flutter analyze --no-pub
+
+      - name: Build release APK
+        run: flutter build apk --release --verbose
+
+      - name: Verify APK exists
+        run: test -s build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FallPiano-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
